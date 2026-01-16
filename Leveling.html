@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYSTEM: SHARAD_GROWTH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+        :root { --sys-blue: #0ea5e9; --sys-red: #ef4444; --sys-bg: #020617; }
+        body { background-color: var(--sys-bg); color: #e2e8f0; font-family: 'Rajdhani', sans-serif; min-height: 100vh; overflow-x: hidden; }
+        
+        /* Moving Background */
+        .bg-jinwoo {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: linear-gradient(rgba(2,6,23,0.85), rgba(2,6,23,0.95)), 
+                        url('https://i.pinimg.com/originals/e4/1d/10/e41d10006798030018742541432f8373.gif');
+            background-size: cover; background-position: center; opacity: 0.4;
+        }
+
+        .sys-font { font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+        .sys-box { background: rgba(15, 23, 42, 0.9); border: 1px solid #1e293b; position: relative; }
+        .tab-btn { padding: 10px; font-size: 10px; border-bottom: 2px solid transparent; transition: 0.3s; color: #475569; }
+        .tab-active { color: var(--sys-blue); border-color: var(--sys-blue); text-shadow: 0 0 10px var(--sys-blue); }
+        .panel { display: none; }
+        .panel-active { display: block; animation: fadeIn 0.4s ease-out; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        canvas { width: 100% !important; height: 180px !important; }
+        input[type="checkbox"] { appearance: none; width: 20px; height: 20px; border: 2px solid #475569; cursor: pointer; display: grid; place-content: center; }
+        input[type="checkbox"]:checked { border-color: var(--sys-blue); background: rgba(14, 165, 233, 0.2); }
+        input[type="checkbox"]:checked::before { content: "✔"; color: var(--sys-blue); font-size: 12px; }
+    </style>
+</head>
+<body class="p-4 max-w-md mx-auto w-full flex flex-col h-screen" onclick="initAudio()">
+
+    <div class="bg-jinwoo"></div>
+
+    <header class="mb-4 border-b border-slate-800 pb-2">
+        <div class="flex justify-between items-end">
+            <div>
+                <h1 class="text-[10px] text-red-500 font-bold tracking-widest">[ SYSTEM_STATUS ]</h1>
+                <h2 class="text-xl font-black italic sys-font text-white">PLAYER: <span class="text-sky-400">SHARAD</span></h2>
+            </div>
+            <div id="rank-badge" class="text-4xl font-black sys-font text-slate-700">E</div>
+        </div>
+        <div id="msg-box" class="mt-3 text-[10px] text-sky-400 font-mono bg-slate-900/80 p-2 border-l-2 border-sky-500">
+            > SYSTEM: INITIALIZING GROWTH TRACKER...
+        </div>
+    </header>
+
+    <nav class="flex mb-4 border-b border-slate-800">
+        <button onclick="switchTab('missions')" id="tab-missions" class="tab-btn tab-active flex-1">[ MISSIONS ]</button>
+        <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn flex-1">[ GROWTH_LOG ]</button>
+    </nav>
+
+    <main class="flex-grow overflow-y-auto no-scrollbar">
+        
+        <div id="panel-missions" class="panel panel-active">
+            <div class="sys-box p-4 mb-4">
+                <table class="w-full">
+                    <tbody id="quest-list"></tbody>
+                </table>
+                <button onclick="addMission()" class="w-full mt-4 border border-dashed border-slate-700 text-slate-500 text-[10px] py-2 hover:text-sky-400 uppercase tracking-widest">
+                    [ + ADD NEW MISSION ]
+                </button>
+            </div>
+
+            <section class="sys-box p-6 text-center">
+                <div id="timer" class="text-5xl font-black sys-font text-white mb-4">25:00</div>
+                <button onclick="startTimer(1500)" class="w-full bg-sky-900/50 hover:bg-sky-600 text-white font-black py-3 text-xs tracking-[3px] border border-sky-500 transition-all uppercase">
+                    ENTER GATE
+                </button>
+            </section>
+        </div>
+
+        <div id="panel-stats" class="panel">
+            <div class="sys-box p-4">
+                <h3 class="text-[10px] text-sky-500 mb-4 sys-font">[ MANA_LEVEL_HISTORY ]</h3>
+                <canvas id="growthChart"></canvas>
+                <div class="flex justify-between mt-2 text-[8px] text-slate-500 font-bold">
+                    <span>7 DAYS AGO</span>
+                    <span>TODAY</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mt-4">
+                <div class="sys-box p-3 text-center">
+                    <div class="text-[8px] text-slate-500">TOTAL_XP</div>
+                    <div id="stat-xp" class="text-lg font-bold text-sky-400">0</div>
+                </div>
+                <div class="sys-box p-3 text-center">
+                    <div class="text-[8px] text-slate-500">RANK_STATUS</div>
+                    <div id="stat-rank" class="text-lg font-bold text-white">E</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="mt-4 pb-4">
+        <button onclick="punish()" class="w-full border border-red-900 text-red-700 text-[10px] py-3 hover:bg-red-950 font-bold tracking-widest uppercase">
+            [ I FAILED - ACCEPT PUNISHMENT ]
+        </button>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let mana = parseInt(localStorage.getItem('sharad_mana')) || 0;
+        let tasks = JSON.parse(localStorage.getItem('sharad_tasks')) || [{text:"INITIAL MISSION", checked:false}];
+        let history = JSON.parse(localStorage.getItem('sharad_history')) || [0,0,0,0,0,0,0];
+        let lastLogDate = localStorage.getItem('sharad_last_log');
+        let audioCtx, countdown, isRunning = false;
+
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('panel-active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+            document.getElementById('panel-' + tab).classList.add('panel-active');
+            document.getElementById('tab-' + tab).classList.add('tab-active');
+            if(tab === 'stats') renderChart();
+        }
+
+        // --- DATA TRACKING ---
+        function logDailyProgress() {
+            const today = new Date().toLocaleDateString();
+            if (lastLogDate !== today) {
+                history.shift();
+                history.push(mana);
+                localStorage.setItem('sharad_last_log', today);
+                localStorage.setItem('sharad_history', JSON.stringify(history));
+            } else {
+                history[history.length - 1] = mana;
+                localStorage.setItem('sharad_history', JSON.stringify(history));
+            }
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            if (window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['', '', '', '', '', '', ''],
+                    datasets: [{
+                        label: 'MANA XP',
+                        data: history,
+                        borderColor: '#0ea5e9',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#0ea5e9',
+                        pointRadius: 4,
+                        fill: true,
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { display: false },
+                        x: { grid: { color: '#1e293b' } }
+                    }
+                }
+            });
+        }
+
+        // --- SYSTEM CORE ---
+        function updateUI() {
+            document.getElementById('stat-xp').innerText = mana;
+            logDailyProgress();
+            
+            const badge = document.getElementById('rank-badge');
+            let rank = "E", color = "#475569";
+            if (mana > 2000) { rank = "D"; color = "#16a34a"; }
+            if (mana > 8000) { rank = "C"; color = "#0284c7"; }
+            if (mana > 20000) { rank = "A"; color = "#ea580c"; }
+            if (mana > 50000) { rank = "S"; color = "#e11d48"; }
+            
+            badge.innerText = rank;
+            badge.style.color = color;
+            document.getElementById('stat-rank').innerText = rank;
+            localStorage.setItem('sharad_mana', mana);
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('quest-list');
+            list.innerHTML = tasks.map((t, i) => `
+                <tr class="border-b border-slate-800/50">
+                    <td class="py-3 w-8"><input type="checkbox" onchange="toggleTask(${i})" ${t.checked ? 'checked' : ''}></td>
+                    <td class="py-3"><input type="text" value="${t.text}" oninput="updateTask(${i}, this.value)" class="bg-transparent outline-none w-full text-xs uppercase font-bold"></td>
+                    <td class="w-4 text-slate-600 text-[10px] cursor-pointer" onclick="deleteTask(${i})">[X]</td>
+                </tr>
+            `).join('');
+        }
+
+        function toggleTask(i) {
+            tasks[i].checked = !tasks[i].checked;
+            mana += tasks[i].checked ? 200 : -200;
+            sysMsg(tasks[i].checked ? "BARELY ACCEPTABLE, SHARAD." : "UNDOING WORK? PATHETIC.", tasks[i].checked ? false : true);
+            save(); updateUI();
+        }
+
+        function punish() {
+            if(confirm("SHARAD, ARE YOU ADMITTING DEFEAT? -1000 XP.")) {
+                mana = Math.max(0, mana - 1000);
+                sysMsg("SHARAD IS WEAK. THE SYSTEM MOCKS YOU.", true);
+                save(); updateUI();
+            }
+        }
+
+        function sysMsg(txt, angry) {
+            const box = document.getElementById('msg-box');
+            box.innerText = "> SYSTEM: " + txt;
+            box.style.color = angry ? '#ef4444' : '#0ea5e9';
+            box.style.borderColor = angry ? '#ef4444' : '#0ea5e9';
+        }
+
+        function addMission() { tasks.push({text: "", checked: false}); renderTasks(); save(); }
+        function updateTask(i, val) { tasks[i].text = val; save(); }
+        function deleteTask(i) { tasks.splice(i, 1); renderTasks(); save(); }
+        function save() { localStorage.setItem('sharad_tasks', JSON.stringify(tasks)); }
+        
+        function startTimer(s) {
+            if(isRunning) return; isRunning = true;
+            countdown = setInterval(() => {
+                let m = Math.floor(s/60), sec = s%60;
+                document.getElementById('timer').innerText = `${m}:${sec < 10 ? '0' : ''}${sec}`;
+                if (s-- <= 0) { clearInterval(countdown); mana += 500; updateUI(); isRunning = false; }
+            }, 1000);
+        }
+
+        window.onload = () => { renderTasks(); updateUI(); };
+    </script>
+</body>
+</html>
