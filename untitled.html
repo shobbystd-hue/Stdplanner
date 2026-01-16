@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANGRY PLANNER v5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+        body { font-family: 'Courier Prime', monospace; background-color: #000; color: #fff; transition: background-color 0.3s; }
+        .rage-active { background-color: #660000 !important; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .shame-row { border-left: 4px solid #ff0000; background: #111; margin-bottom: 4px; padding: 4px 8px; font-size: 0.7rem; }
+        .rival-card { border: 2px solid #333; padding: 10px; background: #0a0a0a; }
+    </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen" onclick="initAudio()">
+
+    <header class="mb-4 border-b-4 border-white pb-2">
+        <h1 class="text-4xl font-black italic uppercase tracking-tighter">Angry Planner</h1>
+        <p id="insult-box" class="text-[10px] text-red-600 font-bold uppercase mt-1 italic">The Machine is winning. Pathetic.</p>
+    </header>
+
+    <section class="rival-card mb-6">
+        <div class="flex justify-between text-[10px] uppercase font-bold mb-2">
+            <span>The Leaderboard</span>
+            <span class="text-red-500 underline">Live Competition</span>
+        </div>
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs">🤖 THE MACHINE (AI)</span>
+                <span id="ai-score" class="font-bold text-red-600">8.2 hrs</span>
+            </div>
+            <div class="w-full bg-gray-900 h-2">
+                <div id="ai-bar" class="bg-red-600 h-2" style="width: 82%"></div>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+                <span class="text-xs">👤 YOU (LAZY)</span>
+                <span id="user-score" class="font-bold text-green-500">0.0 hrs</span>
+            </div>
+            <div class="w-full bg-gray-900 h-2">
+                <div id="user-bar" class="bg-green-500 h-2" style="width: 0%"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-6 p-4 border-2 border-white rounded bg-black">
+        <div id="timer" class="text-5xl font-black text-center py-2">25:00</div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="startRage(1500)" class="flex-1 bg-red-600 text-white font-bold py-3 text-xs uppercase shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">START RAGE</button>
+            <button onclick="resetRage()" class="px-4 border border-gray-600 text-[10px] uppercase">Stop</button>
+        </div>
+    </section>
+
+    <section class="mb-6">
+        <div class="space-y-4">
+            <div class="flex items-center gap-3">
+                <input type="checkbox" onchange="playSuccess()" class="w-8 h-8 accent-green-600">
+                <input type="text" placeholder="URGENT TASK" class="bg-black border-b border-gray-800 w-full focus:border-red-600 uppercase text-xs p-1">
+            </div>
+        </div>
+    </section>
+
+    <button onclick="addFailure()" class="w-full border-2 border-red-900 text-red-900 font-black py-2 uppercase text-xs mb-6">Record a Fail</button>
+
+    <section class="mt-auto">
+        <h2 class="text-[10px] font-bold uppercase text-gray-500 mb-2">History of Weakness</h2>
+        <div id="shame-log" class="max-h-24 overflow-y-auto"></div>
+    </section>
+
+    <script>
+        let countdown, audioCtx, activeSiren;
+        let userSeconds = parseFloat(localStorage.getItem('userSeconds')) || 0;
+        let history = JSON.parse(localStorage.getItem('angryHistory')) || [];
+
+        const machineInsults = [
+            "I've finished 4 projects while you were blinking.",
+            "Is that all the effort you have? Embaressing.",
+            "My processors don't need coffee or breaks.",
+            "You are a biological error. Work harder.",
+            "I'm gaining on you. Oh wait, I already won."
+        ];
+
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function updateLeaderboard() {
+            const userHrs = (userSeconds / 3600).toFixed(1);
+            document.getElementById('user-score').innerText = userHrs + " hrs";
+            document.getElementById('user-bar').style.width = Math.min((userHrs / 10) * 100, 100) + "%";
+            
+            // AI slowly gets better over time automatically
+            const aiHrs = (8.5 + (new Date().getHours() * 0.1)).toFixed(1);
+            document.getElementById('ai-score').innerText = aiHrs + " hrs";
+            document.getElementById('ai-bar').style.width = Math.min((aiHrs / 10) * 100, 100) + "%";
+            
+            if (parseFloat(userHrs) < parseFloat(aiHrs)) {
+                document.getElementById('insult-box').innerText = machineInsults[Math.floor(Math.random() * machineInsults.length)];
+            } else {
+                document.getElementById('insult-box').innerText = "YOU'RE AHEAD. DON'T SLACK OFF NOW.";
+                document.getElementById('insult-box').classList.replace('text-red-600', 'text-green-500');
+            }
+        }
+
+        function startRage(seconds) {
+            resetRage();
+            document.body.classList.add('rage-active');
+            let timeLeft = seconds;
+            countdown = setInterval(() => {
+                userSeconds++;
+                localStorage.setItem('userSeconds', userSeconds);
+                updateLeaderboard();
+                
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                document.getElementById('timer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    activeSiren = playSiren();
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        function resetRage() {
+            clearInterval(countdown);
+            if (activeSiren) activeSiren.stop();
+            document.body.classList.remove('rage-active');
+            document.getElementById('timer').innerText = "25:00";
+        }
+
+        function playSuccess() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playSiren() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 1.0);
+            osc.loop = true;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); return osc;
+        }
+
+        function addFailure() {
+            const now = new Date();
+            history.push({ date: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), msg: "Lacked focus." });
+            localStorage.setItem('angryHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            document.getElementById('shame-log').innerHTML = history.slice().reverse().map(e => `<div class="shame-row">${e.date}: ${e.msg}</div>`).join('');
+        }
+
+        updateLeaderboard();
+        renderHistory();
+    </script>
+</body>
+</html>
