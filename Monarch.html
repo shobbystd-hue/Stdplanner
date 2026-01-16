@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE SYSTEM: JOB ADVANCEMENT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+        :root { --sys-cyan: #38bdf8; --sys-rose: #f43f5e; }
+        body { font-family: 'Orbitron', sans-serif; background: #020617; color: #fff; letter-spacing: 1px; text-transform: uppercase; }
+        .system-text { color: var(--sys-cyan); text-shadow: 0 0 8px rgba(56, 189, 248, 0.5); }
+        .system-border { border: 1px solid var(--sys-cyan); background: rgba(15, 23, 42, 0.9); }
+        .job-overlay { display: none; background: rgba(0,0,0,0.95); position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; border: 5px solid var(--sys-rose); }
+        .quest-active { display: flex !important; animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 10% { transform: translate(-1px, -2px); } 100% { transform: translate(1px, -1px); } }
+        #trial-timer { font-size: 4rem; color: var(--sys-rose); text-shadow: 0 0 20px var(--sys-rose); }
+    </style>
+</head>
+<body class="p-5 flex flex-col min-h-screen" onclick="initAudio()">
+
+    <div id="job-quest" class="job-overlay">
+        <h1 class="text-2xl font-black text-rose-500 mb-4">[ JOB ADVANCEMENT QUEST ]</h1>
+        <p class="text-xs mb-8 text-rose-200">YOU HAVE REACHED THE LIMIT. TO SURPASS THE HUMAN RANK, YOU MUST ENDURE THE 4-HOUR TRIAL OF SILENCE.</p>
+        <div id="trial-timer">04:00:00</div>
+        <p class="text-[10px] mt-8 opacity-50 italic">WARNING: CLOSING THIS GATE WILL RESET YOUR PROGRESS TO LEVEL 1.</p>
+        <button onclick="startTrial()" id="trial-start-btn" class="mt-10 px-10 py-4 border-2 border-rose-500 text-rose-500 font-black">BEGIN_TRIAL</button>
+    </div>
+
+    <header class="mb-4 border-b border-sky-800 pb-2 flex justify-between items-center">
+        <div>
+            <h1 class="text-[9px] system-text">[ CLASS: <span id="job-title">NAMELESS_HUNTER</span> ]</h1>
+            <h2 class="text-lg font-black italic">LVL. <span id="lvl-num">01</span></h2>
+        </div>
+        <div id="rank-badge" class="text-3xl font-black system-text">E</div>
+    </header>
+
+    <div class="mb-6">
+        <div class="flex justify-between text-[10px] mb-1">
+            <span>TOTAL_MANA</span>
+            <span id="mana-display" class="system-text">0</span>
+        </div>
+        <div class="w-full bg-slate-900 h-1"><div id="exp-bar" class="bg-sky-400 h-full" style="width: 0%"></div></div>
+    </div>
+
+    <nav class="flex gap-4 mb-6 border-b border-slate-800 text-[9px]">
+        <button onclick="showPanel('work')" class="pb-2 border-b-2 border-sky-500">[ DUNGEON ]</button>
+        <button onclick="showPanel('stats')" class="pb-2 opacity-50">[ LOG ]</button>
+    </nav>
+
+    <main id="panel-work" class="flex-grow">
+        <section class="system-border p-8 text-center rounded">
+            <div id="timer" class="text-6xl font-black mb-8">25:00</div>
+            <button onclick="startRage(1500)" class="w-full bg-sky-700 py-4 font-black text-xs tracking-widest border border-sky-400">ENTER_GATE</button>
+        </section>
+        
+        <div class="mt-6 space-y-2">
+            <div class="bg-slate-900/50 p-3 border-l-2 border-sky-500 flex gap-3">
+                <input type="checkbox" onchange="completeQuest()">
+                <input type="text" id="t1" class="bg-transparent outline-none text-xs w-full" placeholder="DAILY_MISSION_01" oninput="saveData()">
+            </div>
+        </div>
+    </main>
+
+    <footer class="mt-auto pt-4 flex gap-2">
+        <button onclick="recordFailure()" class="flex-1 text-[8px] border border-red-900 py-2 text-red-500">[ PENALTY ]</button>
+    </footer>
+
+    <script>
+        let countdown, audioCtx;
+        let mana = parseInt(localStorage.getItem('mana_v15')) || 0;
+        let jobClaimed = localStorage.getItem('job_claimed') === 'true';
+
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function updateSystem() {
+            document.getElementById('mana-display').innerText = mana.toLocaleString();
+            const level = Math.floor(mana / 2000) + 1;
+            document.getElementById('lvl-num').innerText = level;
+            document.getElementById('exp-bar').style.width = ((mana % 2000) / 20) + "%";
+
+            // Job Advancement Trigger
+            if (mana >= 40000 && !jobClaimed) {
+                document.getElementById('job-quest').classList.add('quest-active');
+            }
+
+            if (jobClaimed) {
+                document.getElementById('job-title').innerText = "SHADOW_MONARCH";
+                document.getElementById('job-title').style.color = "#a855f7";
+            }
+
+            const badge = document.getElementById('rank-badge');
+            if (mana < 2000) badge.innerText = "E";
+            else if (mana < 10000) badge.innerText = "C";
+            else if (mana < 40000) badge.innerText = "A";
+            else badge.innerText = "S";
+
+            localStorage.setItem('mana_v15', mana);
+        }
+
+        function startTrial() {
+            let trialTime = 4 * 60 * 60; // 4 Hours
+            document.getElementById('trial-start-btn').style.display = 'none';
+            const tDisplay = document.getElementById('trial-timer');
+            
+            const trialInterval = setInterval(() => {
+                const h = Math.floor(trialTime / 3600);
+                const m = Math.floor((trialTime % 3600) / 60);
+                const s = trialTime % 60;
+                tDisplay.innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                
+                if (trialTime-- <= 0) {
+                    clearInterval(trialInterval);
+                    jobClaimed = true;
+                    localStorage.setItem('job_claimed', 'true');
+                    document.getElementById('job-quest').classList.remove('quest-active');
+                    alert("[SYSTEM: YOU HAVE SURPASSED THE LIMIT. ARISE.]");
+                    updateSystem();
+                }
+            }, 1000);
+        }
+
+        function startRage(s) {
+            clearInterval(countdown);
+            let timeLeft = s;
+            countdown = setInterval(() => {
+                mana += 5; updateSystem();
+                const m = Math.floor(timeLeft / 60);
+                const sc = timeLeft % 60;
+                document.getElementById('timer').innerText = `${m}:${sc < 10 ? '0' : ''}${sc}`;
+                if (timeLeft-- <= 0) { clearInterval(countdown); playBeep(200); }
+            }, 1000);
+        }
+
+        function completeQuest() { mana += 500; updateSystem(); }
+        function recordFailure() { mana = Math.max(0, mana - 1000); updateSystem(); }
+        function playBeep(f) {
+            if(!audioCtx) return;
+            let o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.frequency.value = f; g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+            o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.5);
+        }
+
+        updateSystem();
+    </script>
+</body>
+</html>
